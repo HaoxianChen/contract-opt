@@ -1,0 +1,19 @@
+\subsection{Space Pruning Patterns}
+\label{ssec_pruning}
+
+Developing an accurate cost model for smart contracts presents significant challenges. Nonetheless, we can distinguish between efficient and inefficient view materialization plans by leveraging insights from the execution and cost models of Ethereum smart contracts. In particular, we can identify patterns indicative of inefficient view materialization strategies. As our plan exploration algorithm iteratively enumerates valid alternatives for each newly generated valid plan, discussed in detail in Sec~\ref{ssec:enumeration}, \proto effectively narrows the plan search space by removing inefficient plans that conform to these identified patterns at each iteration of the search.
+
+\noindent \textbf{1. Plan minimality.} 
+\proto generates and explores alternative plans exclusively for valid minimal-form materialization plans.
+During each search iteration, valid non-minimal view materialization plans (Definition~\ref{def:min-plan}) are transformed into their minimal forms, while less efficient original plans are discarded.
+Moreover, multiple plans can share the same minimal form. In subsequent iterations, we focus on exploring alternative options for new valid minimal plans instead of all valid plans, which helps to further narrow the search space. In Section~\ref{sec-proof}, we demonstrate that this optimized search strategy still accurately identifies all valid minimal plans.
+
+
+\noindent \textbf{2. Join complexity.} 
+Relations defined by rules that involve costly join operations are not materialized. \proto employs a heuristic to estimate the join cost: if a join operation cannot benefit from index optimization and requires looping through a table, it is considered expensive and thus unsuitable for runtime maintenance. Consider Figure~\ref{fig-example}, Line 9 as an example. Materializing the {\sf \lstinline{canSend(p,q)}} relation incurs significant overhead, as each insertion into the \lstinline{permission} relation triggers a loop through \lstinline{permission} itself. Conversely, during runtime querying, by indexing the \lstinline{permission} relation, the query \lstinline{canSend(p,q)} can be efficiently resolved with just two read instructions. \proto identifies such expensive joins and opts to represent the head relations, like {\sf \lstinline{canSend(p,q)}}, as functions. Consequently, all plans containing {\sf \lstinline{canSend(p,q)}} are eliminated from both results and later iterations.
+
+\noindent \textbf{3. Aggregations.} 
+On the contrary, for relations defined by aggregation rules, they are deemed expensive to be queried at run-time and should always be maintained incrementally whenever the base relation changes. Thus, we prune the choice of recomputing these relations. A detailed clarification is provided in Definition~\ref{def:excutable-relation} to explain the usage of this rule.
+
+\noindent \textbf{4. Transaction relations.} 
+Transaction record relations and event relations are reserved for incoming transaction requests that are huge in size. They are storage-consuming and should not be considered for materialization.

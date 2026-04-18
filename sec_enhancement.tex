@@ -1,0 +1,62 @@
+\section{Enhancing Declarative Smart Contract}
+\label{sec-enhancement}
+In this section, we first propose extensions to improve the expressiveness of declarative smart contracts, to support previously unrepresentable constructs and behaviors, as discussed in Section~\ref{ssec-limitation}. We also provide mechanisms to support the efficient automatic translation from high-level declarative specifications to equivalent Solidity implementations through compiler-level improvements.
+
+
+\subsection{Language Extension}
+
+We extend the language by supporting necessary keywords and blockchain semantics, as well as if-else control flows. The support for the object-oriented function invocation will be discussed in Section~\ref{ssec:lazy-evaluation}, serving as the basis of efficiency optimization.
+
+\stitle{New keywords and blockchain semantics.} We introduce a richer set of keywords into the Datalog syntax to accommodate more expressive logic and on-chain interaction.
+% They are necessary because many practical contracts, e.g., token standards, auctions, and governance systems, rely on arithmetic operations and access to on-chain metadata that are not supported in standard Datalog.
+Our extended compiler further parses and translates these new Datalog primitives into semantically appropriate Solidity constructs for contract execution.
+Specifically, we introduce:
+\begin{itemize}[leftmargin=0pt]
+    \item {\em Advanced mathematical operators}. Contracts like {\sf SimpleStorage} require arithmetic operations such as {\sf sqrt}, {\sf power}, {\sf exponentiation}, and {\sf log}, which were previously unsupported but essential for modeling tokenomics, interest computation, and pricing functions. 
+    Besides, we systematically support aggregative logics (e.g., {\sf max}, {\sf count}) in contracts like {\sf BrickBlockToken} and {\sf Ballot}, which previously were only partially implemented for special cases like relation inserts without correctly handling relation updates and deletes.
+    \item {\em On-chain specific context variables}. We systematically support
+transaction context (e.g., {\tt msg.sender}, {\tt msg.value}), block context (e.g., {\tt block.number}, {\tt block.timestamp}) and smart contract metadata (e.g., {\tt this.address}, {\tt this.balance}), which are widely used in Solidity-based applications (e.g., ERC20 contracts) to express security checks and state-dependent logic.
+\end{itemize}
+
+\stitle{If-else control flow.} 
+To support conditional logic commonly found in smart contracts like {\sf VestingWallet}, we implement {\sf if-else} semantics in declarative smart contracts. Each branch of the {\sf if-else} is encoded as a separate Datalog rule, with the corresponding condition included in the rule body.
+For any given rule, the update logic is executed only when its condition holds. Although updates to the same head relation are distributed across multiple rules, at most one branch condition can be true per event, ensuring that only one rule is applied. This design avoids conflicts between rules updating the same head relation.
+
+\subsection{Storage Optimization by Lazy Evaluation}
+\label{ssec:lazy-evaluation}
+
+\stitle{Reducing over-materialization}.
+To mitigate over-materialization mentioned in Sec~\ref{ssec-inefficiency}, we propose a {\em selective view materialization} strategy designed and optimized specifically for smart contracts (discussed in Sec~\ref{sec-materialization}).
+The basic idea is to select only a subset of intermediate views to be materialized, thus saving the gas cost on recomputing and rewriting all the associated view relations each time new transactions arrive. Importantly, this selective view materialization is built upon techniques of view elimination and lazy view evaluation. 
+While view elimination simplifies the querying of qualified rule body relations along the rule updation chain of transactions, lazy evaluation of necessarily queried views supports computation on demand for certain relations with no need to materialize them in storage and thus saves the frequent and costly storage write costs. 
+\proto adopts view elimination and distinguishes between
+\emph{necessary relations}, which are necessarily queried during execution and must be materialized or computed on demand; and
+\emph{transient relations}, which can be simplified and skipped during evaluation if we could propagate their updates directly to all corresponding rule heads without querying their concrete values. In this case, there is no need to materialize or compute these relations, which are never directly fetched in the contract execution.
+
+Based on the elimination of transient relations, the compiler decides whether to materialize necessary relations persistently or apply lazy evaluation.
+The former performs multiple costly storage writes after each triggered transaction but can support quick querying, while the latter spends extra time but less gas to compute on demand. It enables trade-offs between gas cost of view maintenance and query efficiency: materialization is beneficial for read-heavy cases, while recomputation is gas-efficient if updates are costly.
+However, a challenge is that when we choose to lazily evaluate a relation through queries to other relations, some of the queried relations could initially be identified as transient relations. In this case, the transient relations can potentially be introduced back into the materialization plan to support the on-demand computation of certain necessary relations, which motivates the need for a dynamic view selection algorithm to find a suitable and gas-efficient materialization plan.
+Section~\ref{sec-materialization} systematically formalizes the criteria 
+and outlines our elimination and materialization plan selection strategy with detailed examples.
+
+\stitle{Compiler support for on-demand evaluation}.
+Since declarative contracts in nature have no object-oriented function features and can not support the lazy evaluation of necessary views, \proto fills in the gaps between the nature Datalog contracts and the generated Solidity contracts. 
+We first design an algorithm, as discussed in Section~\ref{ssec:enumeration}, to generate the materialization plans for a given Datalog contract, in order to identify the views to be materialized and views to be evaluated on-demand. \proto's compiler further generates data structures for storing materialized relations, synthesizes private functions for lazy evaluation of other required head relations, and invokes these functions appropriately in generated Solidity codes.
+
+Each generated function falls into one of two categories:
+(1) \emph{Value-returning functions} for singleton relations or those with a unique
+return field. These take the primary key(s) as input, evaluate the rule body, and
+return the derived value;
+(2) \emph{Boolean-returning functions} for general relations. These accept all head
+fields as input and return \texttt{true} if the body constraints are satisfied.
+Such functions are used as guards in subsequent rules.
+
+
+At runtime, when a transaction event triggers a rule, \proto incrementally maintains the contract states by updating the associated head relations and recursively propagating the changes. For materialized relations, updates are written directly to storage, while for simplified or lazily evaluated ones, changes are propagated without accessing their values. When a relation’s value is needed, \proto either reads it from memory or computes it on demand via the generated functions.
+
+\subsection{Local Optimization}
+\label{ssec:old_opt}
+
+\proto applies local optimizations such as \emph{read projection} and \emph{indexing} to reduce gas cost. When only specific fields of a relation are needed, \proto reads those fields directly instead of fetching the entire row, avoiding unnecessary storage access. For instance, if a rule checks if a user has permission via \lstinline{permission(user,level,timestamp)}, \proto reads only \lstinline{level} and skips \lstinline{timestamp}, reducing gas overhead.
+Additionally, when a relation declares primary keys, \proto generates indices to uniquely identify rows, enabling more efficient lookup and join evaluation. These methods are systematically applied to all contracts.
+

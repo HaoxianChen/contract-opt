@@ -1,0 +1,68 @@
+\subsection{Materialization Plan Validity} 
+\label{ssec:validity}
+
+A \emph{materialization plan} refers to a set of relations to be materialized (maintained in persistent storage).
+The plan is valid if and only if all relational queries in the imperative control flow can be executed using the materialized views.
+
+The \emph{executability of a relation} can be determined by the existence of the queried tuples in the associated relational table (relation materialization), or the fact that it can be derived from other executable relations following the associated rules (relation on-demand evaluation). 
+Specifically, the \emph{executability of a transaction or query} is established on the notion of \emph{executability of a relation}.
+A query is executable if the associated relation is executable, 
+and a transaction is executable if all relational queries in its imperative control flow are executable. Note that the imperative control flow can be further optimized after applying view elimination.
+
+For instance, the rule in Figure~\ref{fig-example} Line 6 defines the start of the imperative execution flow of a \lstinline{transfer} transaction: it is triggered by a {\sf \lstinline{recv_transfer(s,r,n)}} event and subsequently evaluates the executability of the body predicates, namely {\sf \lstinline{balanceOf(s,m)}} and {\sf \lstinline{canSend(s,r)}}. If the transaction parameter is legitimate (\lstinline{n > 0}), the sender {\sf \lstinline{s}} can send to the receiver {\sf \lstinline{r}}, and if the sender has a sufficient balance ({\sf \lstinline{m >= n}}), the transaction proceeds to update dependent relations. Specifically speaking, a {\sf \lstinline{transfer}} tuple is inserted, which triggers the updation of {\sf \lstinline{totalIn}} and {\sf \lstinline{totalOut}} according to lines 12 and 10. This further triggers updating {\sf \lstinline{balanceOf}} in line 14, which leads to the end of this execution flow. Then, based on the arithmetic optimization, {\sf \lstinline{transfer}}, {\sf \lstinline{totalIn}}, and {\sf \lstinline{totalOut}} can all be simplified from the imperative control flow. Note that, considering the sum operator on {\sf \lstinline{transfer}} records, the updated amount of the body relation each time can be understood as the concrete value of the newly inserted {\sf \lstinline{transfer}} record, while we can fulfill the aggregation using only this updated amount with the arithmetic optimization.
+
+In this case, relations {\sf \lstinline{balanceOf}} and {\sf \lstinline{canSend}} 
+are necessary to be executable to determine the legitimacy of the received transaction {\sf \lstinline{transfer}}.
+Notably, though relations {\sf \lstinline{totalIn}} and {\sf \lstinline{totalOut}} can be eliminated and thus not required to be executable, we can still establish their executability to support the executability of {\sf \lstinline{balanceOf}} by on-demand computation when {\sf \lstinline{balanceOf}} is not materialized. 
+Suppose we have a view materialization plan that materializes neither {\sf \lstinline{balanceOf}} 
+nor the two relations {\sf \lstinline{totalIn}} and {\sf \lstinline{totalOut}} that can establish {\sf \lstinline{balanceOf}}.
+This view materialization plan is deemed invalid since it cannot answer relational queries to {\sf \lstinline{balanceOf}},  thereby compromising the executability of the transaction.
+
+The above examples demonstrate how the executability of a relation is connected with the functionality of a declarative smart contract. We next formally define the relation executability.
+
+\begin{deff}\label{def:defining-rules}
+    Let {\sf P} be the set of all rules in a contract. The defining rules of relation {\sf r} are defined as:
+        \[ {\sf defingRules(r,P)} \triangleq \{ {\sf p} | {\sf p} \in {\sf P}, {\sf p.head.relation = r} \} \]
+    
+\end{deff}
+
+\begin{deff}\label{def:excutable-relation}
+    Let $R$ be the set of reserved relations and {\sf P} the set of rules in a declarative contract.
+    Given a view materialization plan as a set of relations {\sf V},
+    a relation {\sf r} is executable ({\sf executable(r,V)}) if one of the following is satisfied:
+    \begin{enumerate}
+        \item It is materialized or a reserved relation: 
+            ${\sf r} \in {\sf V} \cup R$
+        \item 
+        It is defined by non-aggregation rules only, and for each of its defining rules, all relations in the rule body are executable:
+            \[ \forall {\sf p} \in {\sf definingRules(r,P)}, \forall {\sf \_r} \in {\sf p.body}, ~~ {\sf excutable(\_r,V)}  \]
+    \end{enumerate}
+\end{deff}
+The first condition indicates that a relation can be executed by directly reading from the materialized views.
+A special case is the reserved relations that represent on-chain environment variables, such as the incoming message sender, the message value, or the current block number. Such environment variables are maintained by the underlying system and are considered materialized by default.
+
+The second condition is defined inductively: the relation can be computed on demand by looking up relational tuples in the rule body that satisfy the rule constraints. For example, the executability of {\sf \lstinline{canSend(p,q)}}, as defined in line 9, can be determined by querying {\sf \lstinline{permission(p)}} and {\sf \lstinline{permission(q)}}, and the executability of {\sf \lstinline{banlanceOf}} can be determined by {\sf \lstinline{totalIn}} and {\sf \lstinline{totalOut}}.
+However, such inductive executability can only be applied to relations defined by non-aggregation rules, with no aggregators like sum, count, min, or max in the rule logic. For instance, in Figure~\ref{fig-example} line 10, we can not inductively establish {\sf \lstinline{totalOut}}'s executability by aggregatively querying {\sf \lstinline{transfer}}. This is because computing aggregations on the fly requires entirely iterating through another table,
+which is prohibitively gas expensive. Therefore, we deliberately prohibit the choice of recomputation for such relations. 
+
+Given the notion of relation executability, we define {\em materialization plan validity}.
+\begin{deff}\label{def:valid-plan}
+    Let {\sf R} be the set of relations obtained by the optimized imperative control flow,
+    a materialization plan {\sf V} is valid if and only if every relation {\sf r} in {\sf R} is executable:
+       $\forall {\sf r} \in {\sf R}, {\sf executable(r,V)}$
+\end{deff}
+
+Here, the set of relations obtained by the optimized imperative control flow consists of all queried
+relational tables within all public transaction execution control flows,
+which generally includes
+the set of contract states annotated as public view relations,
+but excludes the transaction event relations (with {\sf \lstinline{recv_}} prefix) and transaction record relations.
+
+A {\em minimal materialization plan} is a special kind of valid materialization plan, defined as follows. 
+
+\begin{deff}\label{def:min-plan}
+A minimal materialization plan is a set of relations that (1) is a valid materialization plan, and (2) can not form a valid materialization plan if we remove any relation(s) from it.
+    
+\end{deff}
+
+A qualified, valid materialization plan could be converted into its minimal form by iteratively removing redundant relations until no relations can be removed while preserving the plan's executability, which could make it more efficient or comparable in gas performance with fewer views maintained in storage. Detailed criteria for minimal form generation are provided in the later sections.

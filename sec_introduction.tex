@@ -1,0 +1,110 @@
+\section{Introduction}
+
+Smart contracts are computer programs that automatically and transparently execute themselves when specific, predefined conditions are met.
+They offer enhanced security, reliability, and efficiency, largely due to their tamper-proof nature.
+With the popularity of cryptocurrencies and blockchain technologies, smart contracts have seen widespread adoption in domains such as decentralized finance~\cite{schar2021decentralized}, healthcare~\cite{khatoon2020blockchain}, supply chain~\cite{queiroz2020blockchain}, and digital identity~\cite{takemiya2018sora}. Although often linked to blockchains, smart contracts can function independently and can be stored in a conventional database instead of relying on a decentralized ledger.
+
+Inefficiencies and errors in smart contracts can lead to huge financial losses, sometimes even to millions of US dollars~\cite{zhang2020Framework}. Smart contracts deployed on public blockchains like Ethereum incur \emph{gas costs}, which reflect the computational and storage resources consumed during execution~\cite{wood2014ethereum}. Given the high frequency of transactions\footnote{ According to \href{https://etherscan.io/}{Etherscan}, more than one million transactions per day in Ethereum, with an average transaction fee of 6.4 USD.}, even marginal inefficiencies can accumulate into substantial financial overhead. It is therefore critical to minimize the execution cost of smart contracts while preserving their intended behavior. Besides, verification before deployment is also crucial since smart contracts are immutable once deployed on the blockchain.
+
+Recently, there has been a growing interest in leveraging declarative programming for smart contract development~\cite{dcv-icse24, chen2022declarative} where contract logics are written and verified in declarative languages before being compiled into a target language, often Solidity~\cite{solidity}, for execution. This paradigm provides a clean separation between the contract logic and its implementation during the design phase~\cite{declarative-contract,chen2022declarative,datalog-contract-2,datalog-contract-3}, offering a unifying foundation for systematic program analysis~\cite{Tsankov2018Securify,datalog-analysis,datalog-analysis-2,datalog-analysis-3,datalog-analysis-4}, and more efficient formal verification~\cite{dcv-icse24}.
+To see the advantages of declarative specifications, consider a common source of smart-contract bugs: inconsistent state updates~\cite{chen2022declarative}. In the imperative approach, as used in Solidity, states are maintained in each transaction handler. In contrast, declarative contracts define contract state as views over transaction records and impose constraints over these views. For example, the account balance can be defined declaratively as:
+\[
+\texttt{balance(p, b)} \;:\!- \;
+b = \sum n:\texttt{in(\_, p, n)} - \sum n:\texttt{out(p, \_, n)}
+\]
+As \texttt{balance} is a derived view computed from transaction records, the constraint is automatically enforced for every execution at runtime, eliminating missing-check and inconsistent-update bugs. 
+
+Moreover, the high-level abstraction provided by declarative specifications enables more efficient verification of properties that span long transaction sequences~\cite{dcv-icse24}.
+Take, for instance, the DAO attack in 2016, which resulted in the loss of approximately \$60 million in Ether. In this case, an attacker took advantage of a reentrancy vulnerability within the withdrawal function, allowing them to repeatedly invoke the contract before the user's balance had been updated. The issue arose because the contract only defined the sequence of operations without explicitly enforcing essential invariants like “a user cannot withdraw more than their available balance.” This type of problem can be effectively addressed using declarative approaches, which directly express such invariants, simplifying the reasoning and verification of global safety properties.
+\[
+\texttt{invalid} \;:\!- \;
+    \texttt{withdraw(user, amt)},
+    \texttt{balance(user, b)},
+    \texttt{amt > b}
+\]
+
+Nevertheless, generating \emph{efficient implementations} from declarative smart contract specifications continues to be a complex and skill-demanding task. The execution of smart contracts on public blockchains is inherently expensive due to the overhead of consensus protocols~\cite{wood2014ethereum}, with users directly bearing these costs when they initiate contract transactions.
+For instance, take DeCon~\cite{chen2022declarative}, a declarative language utilized for smart contract implementation. As illustrated in Table ~\ref{tab:gas-breakdown-BNBTransfer}, declarative smart contracts can lead to considerable gas inefficiency. When compared to a carefully hand-optimized open-source Solidity version ({\sf Ref}), a functionally equivalent Solidity version generated from declarative smart contracts using a naive approach ({\sf Datalog}) doubles the overall gas consumption. A noteworthy observation is that the main source of gas inefficiency comes from storage costs. This is partly because, unlike traditional databases that can cache data inexpensively, current declarative contract systems~\cite{chen2022declarative,dcv-icse24} materialize data directly on-chain, leading to significant gas expenses since storage operations are among the most costly on blockchains due to the need for synchronizing global states. Additionally, using many intermediate views to modularize logic in declarative contracts further exacerbates this issue.
+
+We believe that the gas efficiency of smart contract transactions can be improved by utilizing database query optimization techniques.
+Specifically, view materialization techniques can be employed to pinpoint only the crucial intermediates in declarative smart contracts, allowing for the generation of a materialization plan that balances storage costs and runtime efficiency. 
+However, smart contract execution on blockchain presents two significant challenges when adapting these classical query optimizations:
+
+\etitle{(1) Cost modeling}.
+Unlike traditional databases, where query costs can be estimated using stable, range-bounded models based on I/O, CPU, and memory, execution cost on Ethereum depends on low-level EVM semantics, including opcode-level execution, storage access patterns, and gas accounting rules. These costs are difficult to approximate compositionally and are highly sensitive to seemingly minor code transformations. Furthermore, protocol upgrades may further affect gas costs and execution rules, invalidating the underlying cost model.
+
+\etitle{(2) Immutability and lack of runtime adaptivity}.
+Modern database optimizers rely on runtime feedback, such as cardinality re-estimation, plan switching, or adaptive indexing, to refine physical design decisions. Smart contracts, by construction, execute under a fixed execution logic and storage layout once deployed, leaving little room for dynamic adaptation.
+
+\eat{
+However, a key challenge lies in deciding which intermediate results to store on-chain.
+The core consideration is that inaccurate
+cost estimation may result in suboptimal deployment choices and significant financial overhead for contract users.
+In traditional databases, view selection is often
+guided by static cost models that estimate query performance
+~\cite{mami2012survey}. However, such models are roughly range-bounded and ill-suited % or coarse-grained
+for blockchain environments like Ethereum, where exact execution cost depends on
+\revise{low-level factors such as instruction-level behaviors and storage access patterns
+~\cite{wood2014ethereum, albert2020gasol}}.
+Moreover, the immutable nature of smart contracts after deployment precludes the possibility of dynamic plan selection or runtime re-optimization. 
+Compounding this, the Ethereum execution environment evolves rapidly through protocol upgrades, making it difficult to maintain a cost model that is both precise and up-to-date.
+}
+
+This paper presents {\em \proto}, an automated smart contract optimization framework that improves declarative contract efficiency by alleviating these two challenges.
+In {\em \proto}, smart contracts are written in a \emph{declarative} language derived from Datalog~\cite{maier2018datalog, ceri1989you}, and our system compiles this high-level specification into an optimized gas-efficient Solidity~\cite{solidity} implementation. By separating correctness concerns from performance engineering, our approach enables more accessible, verifiable, and gas-efficient development for various real-world contracts.
+We extend the expressiveness of declarative contracts and implement compilation support for translating the new Datalog features into Solidity, to enable a broader class of user-defined expressions and a more comprehensive on-chain interaction model for complex and advanced contracts.
+
+To improve the efficiency of Solidity code generation for declarative smart contracts, we apply query optimization techniques including \emph{read projection} and \emph{arithmetic optimization}, and further support \emph{view elimination} and \emph{selective view materialization}.
+To adapt these techniques to blockchain environments, we propose a \emph{profiling-based} approach to select materialization plans. Rather than relying on static models, we evaluate candidate plans empirically using concrete execution traces in local emulation environments. This enables accurate measurement of gas costs across different plans and allows us to select the optimal one under realistic usage patterns.
+
+Our profiling-based gas evaluation is {\em fast}, {\em cost-free}, {\em accurate}, and {\em portable} across different platforms. 
+To make it fast, we reduce profiling overhead by identifying only a small subset of materialization plans that is guaranteed to include the optimal or at least near-optimal one.
+Starting from the fully materialized baseline plan, our view selection algorithm iteratively prunes the search space using a set of simplification rules to eliminate inefficient plans and enumerates remaining viable candidates within the pruned compact search space.
+We then execute these candidates within a local Ethereum emulation environment to measure their gas costs precisely. This emulation captures low-level EVM instruction semantics and reproduces the behavior of actual transactions without incurring real financial costs.
+Importantly, the emulated execution is deterministic, while being immune to environmental noise such as memory or cache effects, which do not impact the blockchain
+semantics.
+Finally, our profiling framework is portable: it can be adapted to different blockchain platforms and versions with minimal modification, extending the applicability of our optimization techniques beyond the Ethereum ecosystem.
+
+
+\begin{table}[t]
+\caption{Gas breakdown of the BNB Transfer Transaction}
+    \centering
+    \footnotesize
+    \begin{tabular}{ll|lll}
+    \hline
+\textbf{Instruction type}         &        & \textbf{Datalog} & \textbf{Ref.} & \textbf{\proto} \\
+\hline
+\multirow{3}{*}{memory}  & read   & 36                  & 6         & 6         \\
+                         & write  & 195                 & 51        & 63         \\
+                         & others & 1,518                & 1,756      & 1,518         \\
+    \hline
+\multirow{2}{*}{storage} & read   & 31,900               & 4,500      & 4,300         \\
+                         & write  & 13,900               & 5,800      & 5,800         \\
+    \hline
+compute                  &        & 6,769                & 1,986      & 3,092         \\
+    \hline
+transaction fee          &        & 21,570.8
+    & 21,570.8     & 21,570.8         \\
+    \hline
+all                      &        & 75,888.8               & 35,669.8    & 36,349.8         \\
+    \hline
+\end{tabular}
+    \label{tab:gas-breakdown-BNBTransfer}
+\vspace{-1.5em}
+\end{table}
+
+We build a benchmark suite of widely used smart contracts, covering diverse standards and application domains. We further provide declarative implementations for all contracts, many of which have not been previously expressed in a declarative form.
+Experiment results show that \proto can significantly reduce the gas cost of the automatically generated Solidity from declarative smart contracts in most cases, and even match its gas performance with the expert-tuned open-source Solidity. 
+In Table ~\ref{tab:gas-breakdown-BNBTransfer}, when comparing the different Solidity implementations with equivalent functionality of the {\sf BNB} transfer transaction, \proto reduces over $50\%$ total gas cost and especially $\sim 78\%$ storage gas cost compared to the naively compiled declarative version, {\sf Datalog}, and matches that of the carefully hand-tuned version, {\sf Ref}.
+
+Overall, our contributions are as follows:
+\begin{itemize}[leftmargin=10pt] \item We identify key limitations and inefficiencies in existing declarative smart contract systems, particularly the over-materialization of intermediate views (Section~\ref{sec-motivation}).
+
+\item We extend the declarative language with support for advanced expressions and on-chain context variables, enhancing its expressiveness and compatibility with the Solidity and blockchain execution model for advanced contracts (Section~\ref{sec-enhancement}).
+
+\item We implement an automatic optimization framework incorporated especially with view elimination and improved selective view materialization to reduce gas costs and improve runtime efficiency (Sections~\ref{sec-enhancement} and ~\ref{sec-materialization}).
+We further formally define the materialization plan space, and prove the correctness of the optimization algorithm (Section~\ref{sec-proof}).
+
+\item We construct a benchmark of widely used smart contracts to verify \proto's efficiency. We show that \proto can bring substantial gas savings over the unoptimized declarative contracts, and even match the performance of automatically generated codes with hand-optimized Reference. The profiling-based evaluation further provides fast and accurate measurement, overcoming the lack of precise cost models in blockchain platforms (Section~\ref{sec:evaluation}).
+
+\end{itemize}

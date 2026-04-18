@@ -1,0 +1,10 @@
+\subsection{Selecting Optimal Plan}
+\label{ssec:profile}
+
+Given all valid minimal materialization plans, \proto picks the most efficient one through profiling on synthetic transaction traces. The details of the trace generation are described in Section~\ref{sec:evaluation}.
+
+The profiling provides an approximate gas expenditure for each transaction type. However, there is still an important question that needs to be addressed: how to optimize across all transaction types? For instance, the ERC20 standard includes various transaction interfaces, but most ERC20 contracts today are dominated by the {\sf transfer} transaction, while other transaction types like {\sf mint} and {\sf burn} are executed less frequently. If the objective is to minimize the overall gas cost on the actual deployment workload, the optimal approach would be to prioritize the materialization plans that incur the least gas overhead for the {\sf transfer} transaction.
+
+Given the disparity of execution frequency among different transaction interfaces, \proto accepts the expected execution frequency of each transaction type as an optional input. If the expected transaction frequency is given, \proto employs the weighted average of the transaction gas cost as an estimation of a smart contract efficiency metric. Otherwise, the average is used instead, assuming that the transaction types follow a uniform frequency distribution.
+
+% Due to space limitations, we establish key properties of the selective view materialization algorithm, including the minimal form uniqueness, the termination guarantee, and the completeness, which together form the correctness of the \proto algorithm, in the Appendix.

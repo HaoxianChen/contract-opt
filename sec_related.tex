@@ -1,0 +1,29 @@
+\section{Related Works}
+\noindent \textbf{Smart contract optimizations.} Existing smart contract optimizations primarily focus on improving Solidity source code or EVM bytecode, aiming to reduce gas costs or code size. 
+Some approaches apply anti-pattern detection~\cite{Feist2019Slither, nagele2020blockchain, chen2017under} at the source level, optimizing practices such as tight variable packing, loop unrolling avoidance, and costly structure or expression replacement.
+Others conduct static profiling of EVM programs and eliminate redundant or unnecessary operations during compilation to produce efficient bytecode~\cite{albert2022super, correas2021static}.
+GASOL~\cite{albert2020gasol} further builds a cost model to guide storage pattern optimization, but it is often parametric-based or upper-bounded with no accurate gas estimation. 
+However, these techniques remain low-level and tightly coupled to the underlying execution model, while offering limited benefits for formal verification. 
+Moreover, existing Solidity/bytecode-level optimizations cannot eliminate the declaration of unnecessary storage structures corresponding to each of the relations in Decon~\cite{chen2022declarative} contracts. However, our view elimination and materialization plan selection performed before Solidity translation ensures declaring only the necessary storage structures.
+
+\smallskip
+\noindent \textbf{Datalog for program analysis and verification.} 
+Datalog’s strength lies in its rule-based structure, relational closure, and automated reasoning~\cite{ceri1989you, bellomarini2018vadalog}, making it ideal for static analysis~\cite{Durieux2020Review} and formal verification~\cite{bembenek2020formulog, gottlob2002datalog}.
+Existing tools such as Soufflé~\cite{jordan2016souffle}, Securify~\cite{Tsankov2018Securify}, Slither~\cite{Feist2019Slither}, and Flix~\cite{madsen2016datalog} have applied Datalog-compatible static analyzers to analyze various programs or their intermediate representations (IR) and bytecode, including type checking, pointer analysis, and control/data flow analysis.
+Besides, recent efforts like DeCon~\cite{chen2022declarative} and DeSCO~\cite{lu2024practical} have explored Datalog-based smart contracts for verification. 
+While DeCon focuses on foundational language design instead of efficiency and uses only a few hand-crafted pattern rules for gas improvement, DeSCO proposes initial ideas for optimization but lacks formal development and comprehensive evaluation.
+Our work advances the state-of-the-art DeCon by systematically and automatically introducing formal extensions that enhance both expressiveness and execution efficiency. We develop a theoretical framework to support these enhancements without hand optimizations, and provide formal proofs along with empirical evaluation across multiple case studies, moving from conceptual design toward an automatic, robust, and practical system.
+
+
+\smallskip
+\noindent \textbf{Blockchain storage optimizations.}
+Storage operations and persistence on blockchain are gas-expensive, making optimization essential for smart contract efficiency.
+Prior work focuses on source-level data tuning, such as struct layout compacting, bit packing, and looping optimizations~\cite{chen2017under}. Other work optimizes contract-level state design, employing techniques like lazy initialization, state recycling, and pointer-based storage slot reuse~\cite{antonino2021solidifier, wood2014ethereum}. However, these approaches often require expert knowledge of EVM and are error-prone.
+In contrast, our framework provides automated storage optimizations, including storage read projection and high-level selection of necessary states, effectively reducing gas costs without manual tuning.
+While orthogonal to hybrid approaches like L2~\cite{gangwal2023survey, sguanci2021layer} or off-chain~\cite{hepp2018chain, xu2021slimchain, jayabalan2022scalable} storage, our method minimizes the total number of materialized states and can be extended to support multi-tiered storage in future work.
+
+\smallskip
+\noindent \textbf{View selection.}
+Materialized views have been extensively studied as a traditional database technique~\cite{view_selection_survey}, addressing challenges of view selection for materialization~\cite{DBS-020}, incremental maintenance of materialized views, and query rewriting under partial views~\cite{ans_query_w_view}. 
+View selection strategies are typically organized around multiple dimensions, including the nature of the query workload, the objective functions with certain constraints, the search space, and algorithms.
+We adapt view selection to smart contract optimization by focusing on OLTP-style workloads and using gas consumption as the main performance metric. We represent Datalog-defined relation/view dependencies as a logical graph and apply graph-based search with simplification rules for space pruning to efficiently explore the materialization plans. A quick profiling-based simulation provides accurate gas estimates while remaining decoupled from EVM-specific static cost models, ensuring portability across platforms and protocol versions.

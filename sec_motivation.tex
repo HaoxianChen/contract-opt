@@ -1,0 +1,125 @@
+\section{Background and Motivations}
+\label{sec-motivation}
+
+We first introduce declarative programming for smart contracts and discuss its limitations. We explore the inefficiencies in existing compilation strategies. These analyses motivate our work to extend the expressiveness of declarative contracts and enable more cost-efficient execution strategies, as discussed in Section ~\ref{sec-enhancement}.
+
+\begin{figure}[t]
+    \centering
+    \begin{lstlisting}[
+    language=DSC,
+    basicstyle=\ttfamily
+    \footnotesize,
+    frame=single,
+    numbers=left,
+    xleftmargin=1.5em]
+/* Transaction rules */
+mint(p,n) :- recv_mint(p,n), msgSender(s), 
+             owner(s), n>0, p!=0.
+burn(p,n) :- recv_burn(p,n), msgSender(s), 
+             owner(s), p!=0, balanceOf(p,m), n<=m.
+transfer(s,r,n) :- recv_transfer(s,r,n), 
+             balanceOf(s,m),m>=n,n>0,canSend(s,r). 
+/* Inference rules */
+canSend(p,q):-permission(p),permission(q). 
+totalOut(p,s):-transfer(p,_,_), 
+               s=sum n: transfer(p,_,n).
+totalIn(p,s):-transfer(_,p,_), 
+              s=sum n: transfer(_,p,n).
+balanceOf(p,s):-totalOut(p,o),totalIn(p,i),s:=i-o.
+totalMint(s) :- s=sum v: mint(_, v).
+totalBurnt(s) :- s=sum v: burn(_,v).
+totalSupply(s):-totalMint(m),totalBurnt(b),s:=m-b.
+    \end{lstlisting}
+    \vspace{-1.2em}
+    \caption{Declarative token management contract.}
+    \label{fig-example}
+\vspace{-1.5em}
+\end{figure}
+
+\subsection{Declarative smart contracts}
+
+Figure~\ref{fig-example} shows the declarative specification of a token management
+contract, in which contracts are composed of relational tables (relations) and logical rules. The semantics follow Datalog and prior work DeCon~\cite{chen2022declarative}, except that recursion is disallowed for efficiency~\cite{chen2022synthesis}.
+
+Relations represent the core data and events of the contract, including transaction records, contract states (views), and transaction events that trigger contract execution. 
+Except for \emph{transaction relations} storing the transaction records and \emph{event relations} storing the transaction events, all other relations are considered \emph{view relations} maintaining the contract states, which can be queried anytime during the contract execution.
+
+Logic rules further query and manipulate these relations. Each rule consists of a rule head relation, one or more rule body relations, and a relational query over these body relations. The head relation is interpreted as the result of evaluating the query defined over the rule body.
+\proto distinguishes between two types of rules: \emph{transaction rules} and \emph{inference rules}.
+
+{\bf Transaction rules} follow an event-condition-action pattern: they are triggered by a
+specific event in the rule body, and the remaining body determines whether the transaction should
+be accepted. Each transaction rule includes exactly one \emph{event relation},
+identified by the \lstinline{recv_} prefix. For example, in line 2, the predicate
+\lstinline{recv_mint(p,n)} serves as the trigger. The rule then checks that the
+sender is the contract owner, \lstinline{n > 0}, and \lstinline{p} is not the zero address.
+Upon receiving the event trigger and validating the body conditions, updates are made to the rule head (i.e., a transaction record is inserted or updated to the head \emph{transaction relation}).
+
+{\bf Inference rules} define derived relations as logical invariants and are re-evaluated whenever their body relations change. Lines 9–17 illustrate such rules. For instance,
+line~17 defines \lstinline{totalSupply} as the difference between the sum of minted and burnt tokens. Note that changes to the rule head of a relation can further trigger the re-evaluation of other rules where the current rule head acts as part of the rule body, thus generating a rule updation chain.
+
+\subsection{Limitations in Expressiveness}
+\label{ssec-limitation}
+While writing smart contracts in Datalog is simple and well-suited for logic verification, relying solely on Datalog for expressing declarative smart contracts presents several limitations:
+\begin{itemize}[leftmargin=10pt]
+
+    \item \textbf{Lack of support for complex mathematical models. }
+Unlike Solidity, which supports rich numeric types and mathematical expressions, current Datalog-based contracts are limited to basic arithmetic such as addition and subtraction. While some extended variants support aggregate functions like min, max, or count, no existing approach supports advanced operations such as exponentiation, logarithms, or power expressions.
+
+    \item \textbf{No comprehensive on-chain interaction model. }
+Datalog lacks formal semantics for interacting with the blockchain environment. Existing declarative contract systems provide limited extensions on this,
+which significantly limits the contract's ability to express blockchain-native system state and metadata.
+
+    \item \textbf{No control flow constructs. }
+Existing declarative smart contracts do not support common control flow structures such as {\sf if-else}, {\sf for}, or {\sf while} loops. This restricts both the flexibility and conciseness with which logic can be expressed.
+
+    \item \textbf{No object-oriented interaction model. }
+Datalog, in nature, lacks object-oriented constructs such as encapsulation, inheritance, and function invocation. 
+Especially within a contract, unlike Solidity, existing declarative contracts cannot compute unmaterialized facts on demand via function calls. Therefore, all facts to be used must be fully materialized prior to use. 
+
+%     \item \textbf{Lack of fine-grained storage management. }
+% Datalog provides no control over how or where data is stored at the physical level (e.g., storage, memory, or calldata in Solidity), nor can developers specify runtime memory access patterns or explicit storage slot assignments (e.g., “write V to slot N”). Existing systems typically store all relations in contract storage by default, which often results in excessive gas consumption.
+\end{itemize}
+
+\subsection{Inefficiency in Naive Compilation}
+\label{ssec-inefficiency}
+
+Declarative contracts are compiled into Solidity following an incremental
+maintenance strategy~\cite{chen2022declarative}. 
+When an event triggers a transaction, the corresponding transaction
+record is inserted into the transaction table, and all dependent view relations
+(i.e., contract states) are updated recursively, following the rule updation chain. Solidity code is generated to implement this update flow faithfully.
+Since recursion is prohibited at the source level, such updation is guaranteed to terminate.
+ 
+Existing compilers (e.g., Decon~\cite{chen2022declarative}) translate each Datalog rule independently, compiling each into a
+separate function that updates the rule’s head relation based on queries over its
+body relations since Datalog semantics treat rules as unordered and stateless. However, the generated Solidity code eagerly materializes all the view relations
+to contract storage in case they are accessed during queries to the rules' body.
+
+In this case, without support for on-demand evaluation, even intermediate relations that are rarely queried must be fully materialized. This leads to frequent storage reads and writes during incremental updates, as each derived contract state change is recorded to storage by writes and is further propagated through the rule dependency chain, causing re-evaluations and state rewrites to all the associated view relations. Given that storage access is among the most expensive operations on Ethereum (Table~\ref{tab:gas-model}), such over-materialization can result in substantial gas overhead.
+
+Table~\ref{tab:gas-breakdown-BNBTransfer} provides a case study on gas consumption profiling using the transfer transaction obtained from the representative Ethereum {\sf BNB} Token~\cite{bnb} smart contract. The analysis of gas usage by different instruction types indicates that storage operations are the primary contributor to total gas consumption. Moreover, the naively compiled declarative implementation ({\sf Datalog}) demonstrates significantly less efficient gas utilization compared to the carefully hand-optimized open-source reference implementation ({\sf Ref}). In particular, the gas consumption for the naive Datalog compilation is more than double that of the Reference, even when both implementations incur the same substantial fixed transaction fee. Additionally, when examining storage operations specifically, Datalog exhibits more than seven times the costs for storage reads and over two times the costs for storage writes compared to the Reference.
+
+\begin{table}[t]
+\caption{EVM bytecode gas cost model}
+\label{tab:gas-model}
+\vspace{-1em}
+    \centering
+        \footnotesize
+    \begin{tabular}{ll|l}
+    \hline
+\textbf{Instruction type}        &                          & \textbf{Gas}                \\
+    \hline
+Compute                  &                          & 3-10               \\
+    \hline
+Memory                   &                          & 3-12                  \\
+    \hline
+\multirow{3}{*}{Storage} & Load                     & 2,100/100              \\
+                         & Store (init)             & 22100/20,000             \\
+                         & Store (update)           & 5,000/2,900/100              \\
+    \hline
+Other                    &                          & vary by data sizes \\
+    \hline
+\end{tabular}
+\vspace{-1.2em}
+\end{table}

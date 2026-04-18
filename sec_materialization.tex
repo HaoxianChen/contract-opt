@@ -1,0 +1,15 @@
+\section{Selective View Materialization}
+\label{sec-materialization}
+
+This section first defines the imperative control flow of smart contract execution and optimizes it through view elimination based on
+arithmetic expression simplification.
+Next, it establishes the validity and minimal form of a materialization plan 
+based on the optimized imperative control flow. 
+It then introduces an algorithm that systematically identifies 
+all minimal valid materialization plans and determines the most gas-efficient option through profiling.
+
+\input{ssec_viewElimination}
+\input{ssec_planValidity}
+\input{ssec_pruning}
+\input{ssec_enumeration}
+\input{ssec_profiling}

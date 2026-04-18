@@ -1,0 +1,86 @@
+To prove Theorem~\ref{theorem:completeness}, we first establish the following lemma.
+
+\begin{lemma}\label{lemma:reduce-replace}
+    For all valid materialization plan $S$, 
+    let $S'$ be the minimal form of $S$:
+    \begin{align*}
+        MinReplace(\{S\}) = MinReplace(\{S'\})
+    \end{align*}
+\end{lemma}
+
+\paragraph{Proof sketch.}
+We first prove $MinReplace(\{S'\}) \subseteq MinReplace(\{S\})$. $\forall$ relation $r \in S$, (1) if $r \in S'$, then $r$ can be executed by any replacement choices of $S'$ including the reduced one $v$; (2) if $r \notin S'$, then $r$ must be calculated using some relations $p \in P$ where $P \subseteq S'$. In this case, $\forall p \in P$, we have $p \in S'$, and therefore $p$ can be executed by any replacement choices of $S'$ including the reduced one $v$, and thus $r$ can also be executed by $v$. Therefore, $v$ is also a reduced alternative choice of $S$.
+% reduced replacement choices of $S'$ are also reduced replacement choices of $S$: $\forall$ relation $r \in S$: (1) if $r \in S'$, then $r$ can be executed by any replacement choices of $S'$ including the reduced ones; (2) if $r \notin S'$, then $r$ must be calculated using some relations $u \in U$ where $U \subseteq S'$. In this case, $\forall u \in U$, we have $u \in S'$, and therefore $u$ can be executed by any replacement choices of $S'$ including the reduced ones, and thus $r$ can also be executed by these reduced alternative choices.
+
+We next prove $MinReplace(\{S\}) \subseteq MinReplace(\{S'\})$.
+% reduced replacement choices of $S$ are also those of $S'$
+% $\forall u \in U$, we also have $u \in V$. 
+$\forall$ relation $r \in S'$, since $S' \subseteq S$, we have $r \in S$, and therefore $r$ can be executed by any replacement choices of $S$ including the reduced one $u$. So $u$ is also a reduced alternative choice of $S'$.
+
+% The overall task is to find all min sets, namely reduced valid sets. To prove that this algorithm can enumerate all min-sets, we should prove that we only have one base min set, and by replacing elements in the base min set we can find all alternative min sets.
+
+% Recall the definition of "valid", the direct choice of materialization plan, namely the base valid set, consists of all public views, body relations of all transactions and manually defined functions. Since each set can have one corresponding reduced form, so we only have one base min set.
+
+% Secondly, we prove that we can find all reduced replacement choices $U$ of a given set $S$ by finding all the reduced replacement choices $V$ of $S$'s corresponding reduced set $S'$. 
+
+% Given Lemma~\ref{lemma:reduce-replace}, we finally prove that we can find all reduced replacements of the base min set, which can also satisfy the base valid set. Since we can only use body relations to calculate head relations, the replacement algorithm can only go from head nodes to the incoming nodes and will terminate. Furthermore, we traverse through all the replacement space by iteratively and recursively replacing the relations one after another in BFS or DFS order, and at each step we turn the new set into its reduced form which we conduct replacement on during the next step. So after the algorithm terminates, we can find all alternative min sets of the base min set.
+
+Following Lemma~\ref{lemma:reduce-replace}, we further deduce the following lemma:
+\begin{lemma}\label{lemma:reduce-replace-set}
+    Let $\Sigma$ be a set of valid materialization plan, 
+    We have:
+    \[ MinReplace(\Sigma) = MinReplace(GetMinimal(\Sigma)) \]
+\end{lemma}
+
+Given Lemma~\ref{lemma:reduce-replace-set}, we proceed to prove completeness 
+(Theorem~\ref{theorem:completeness})
+of the materialization enumeration algorithm.
+The proof is conducted via mathematical induction on the number 
+of the application for $MinReplace$ method $i$.
+
+For the base case, where $i = 0$, and $B' = GetMinimal(B)$,
+which is true following our assumption.
+
+For induction case where $i=n$, the induction hypothesis is as follow:
+\[ \bigcup_{i=0}^{n}MinReplace^i(B') =  \{ GetMinimal(S)  | S \in \Sigma_n \} \]
+
+We then analyze the case where $i=n+1$, the output of the enumeration algorithm
+after $n+1$ applications of the $minReplace$ method can be rewritten as follows:
+\[
+    \bigcup_{i=0}^{n+1}MinReplace^i(B') = \bigcup_{i=0}^{n}MinReplace^i(B') \cup minReplace^{n+1}(B')
+\]
+
+Substituting the right hand side of the above eqaution with the induction hypothesis, 
+we have:
+\begin{equation}
+    \label{eq:induction}
+     \bigcup_{i=0}^{n+1}MinReplace^i(B') = \{ GetMinimal(S)  | S \in \Sigma_n \}
+                                           \cup minReplace^{n+1}(B')
+\end{equation}
+
+Next, we expand $minReplace^{n+1}(B')$: 
+\begin{align*}
+    minReplace^{n+1}(B') & = minReplace^n(minReplace(B')) \\
+\end{align*}
+
+By lemma~\ref{lemma:reduce-replace-set}, we can further rewrite the right-hand-side: 
+\begin{align*}
+    minReplace^{n+1}(B') 
+                    & = minReplace^n(minReplace(B)) \\
+                    & = minReplace^n(GetMinimal(Replace(B))) \\
+                    & = minReplace^n(Replace(B)) \\
+                    & ... \\
+                    & = minReplace(Replace^{n}(B)) \\
+                    & = GetMinimal(Replace^{n+1}(B)) \\
+                    & = \{ GetMinimal(S) ~|~ S \in Replace^{n+1}(B) \} \\
+\end{align*}
+
+Substituting the right-hand-side of the above equation back to Equation~\ref{eq:induction},
+we have:
+\[
+    \bigcup_{i=0}^{n+1}MinReplace^i(B') = \{ GetMinimal(S) ~|~ S \in \Sigma_{n+1} \}
+\]
+which establishes the validity for $i=n+1$.
+
+Here, we have successfully completed the induction step and prove the completeness property
+as defined in Theorem~\ref{theorem:completeness}.

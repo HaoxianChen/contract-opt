@@ -1,0 +1,151 @@
+\documentclass[sigconf, anonymous]{acmart}
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\usepackage{amsmath,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{amsthm}
+\usepackage{listings}
+\usepackage{multirow}
+\usepackage{epsfig}
+\usepackage{endnotes}
+\usepackage{xspace}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{soul}
+\usepackage{fixltx2e}
+\usepackage{balance}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{hyperref}
+
+\algtext*{EndFor}
+\algtext*{EndIf}
+\algtext*{EndFunction}
+\algtext*{EndWhile}
+
+
+\newcommand{\proto}{\textsc{Ocelot}\xspace}
+\newcommand{\base}{Baseline\xspace}
+\definecolor{lanRed}{RGB}{255,0,102}
+\newcommand{\lan}[1]{\textcolor{lanRed}{#1}}
+
+% \newtheorem{lemma}{Lemma}
+% \newtheorem{theorem}{Theorem}
+% \newtheorem{definition}{Definition}
+% \newcommand{\newlemma}[1]{\textbf{Lemma:} \emph{#1}}
+
+
+\newtheorem{metalemma}{Lemma}[section]
+\newtheorem{Definition}[metalemma]{Definition}
+\newtheorem{Lemma}[metalemma]{Lemma}
+\newtheorem{Theorem}[metalemma]{Theorem}
+\newtheorem{Proposition}[metalemma]{Proposition}
+
+\newenvironment{prop}{\begin{Property}\em}{\end{Proposition}}
+\newenvironment{lmm}{\begin{Lemma}\em}{\end{Lemma}}
+\newenvironment{thm}{\begin{Theorem}\em}{\end{Theorem}}
+\newenvironment{deff}{\begin{Definition}\em}{\end{Definition}}
+\newenvironment{prf}{\noindent{\bf Proof:}\rm}
+
+
+
+
+
+
+\newcommand{\stitle}[1]{\vspace{1.2ex}\noindent{\bf #1}}
+\newcommand{\etitle}[1]{\vspace{1ex}\noindent{\em{#1}}}
+\newcommand{\eat}[1]{}
+
+\input{syntax_highlighting}
+
+\setcopyright{none}
+
+\begin{document}
+
+\title{OCELOT: Optimizing Contract Execution a LOT}
+
+\author{Lan Lu}
+\affiliation{%
+  \institution{University of Pennsylvania}
+}
+\email{lanlu@seas.upenn.edu}
+
+\author{Tao Luo}
+\affiliation{%
+  \institution{University of Pennsylvania}
+}
+\email{taoluo71@seas.upenn.edu}
+
+\author{Isaac Yang}
+\affiliation{%
+  \institution{Duke Kunshan University}
+}
+\email{isaac.y@dukekunshan.edu.cn}
+
+\author{Jingyi Li}
+\affiliation{%
+  \institution{University of Pennsylvania}
+}
+\email{jyljingyili@gmail.com}
+
+\author{Hongxun Ding}
+\affiliation{%
+  \institution{University of Science and Technology of China}
+}
+\email{hongxunding02@gmail.com}
+
+\author{Brendan Massey}
+\affiliation{%
+  \institution{University of Pennsylvania}
+}
+\email{masseybr@seas.upenn.edu}
+
+\author{Mohammad Javad Amiri}
+\affiliation{%
+  \institution{Stony Brook University}
+}
+\email{amiri@cs.stonybrook.edu}
+
+\author{Haoxian Chen}
+\affiliation{%
+  \institution{ShanghaiTech University}
+}
+\email{hxchen@shanghaitech.edu.cn}
+
+\author{Boon Thau Loo}
+\affiliation{%
+  \institution{University of Pennsylvania}
+}
+\email{boonloo@seas.upenn.edu}
+
+
+\fancyhead{}
+
+\input{sec_abstract}
+\maketitle
+
+
+\input{sec_introduction}
+\input{sec_motivation}
+\input{sec_enhancement}
+\input{sec_materialization}
+\input{sec_proof}
+\input{sec_experiments}
+\input{sec_related}
+\input{sec_conclusion}
+\balance
+
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{main}
+
+\newpage
+
+% \appendix
+% \input{sec_appendix}
+
+\end{document}
+

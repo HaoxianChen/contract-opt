@@ -1,0 +1,9 @@
+\section{Conclusion}
+
+In this paper, we introduce a declarative smart contract system that offers enhanced declarative specifications and automatic optimizations for generating gas-efficient smart contract implementations. We specifically employ a range of optimization techniques, prominently featuring a novel and formally validated selective view materialization framework that utilizes view elimination.
+Additionally, unlike previous join-planning methods that rely on cost models, which tend to yield imprecise upper bounds and necessitate manual updates with each release of the EVM, our profiling-based evaluations ensure precise gas cost assessments, eliminating small estimation inaccuracies that could lead to significant financial losses.
+Through experiments conducted on various real-world contracts, we demonstrate that our approach significantly narrows the performance gap between automatically generated code and hand-crafted open-source versions, resulting in notable gas savings in storage costs compared to basic compilation methods. This highlights both the effectiveness and efficiency of our system, while making the development process more accessible for non-experts.
+
+Our work opens several promising directions for future research. One avenue is applying declarative smart contracts to permissioned blockchains with batch parallelism to boost performance. We also plan to explore topics like multi-query optimization and cross-transaction data sharing under the declarative settings. These new techniques can further reduce resource utilization and enable our approach to even outperform the current Reference implementation.
+Besides, while we extend expressiveness, future work may further enhance declarative smart contracts by incorporating features from modern Datalog variants.
+These directions can further advance declarative smart contract development, improving both the efficiency and practicality of decentralized applications.
