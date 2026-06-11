@@ -1,0 +1,144 @@
+Paper ID
+309
+Paper Title
+OCELOT: Optimizing Contract Execution a LOT
+Track Name
+Research Round 2
+Reviewer #1 | Regular
+Questions
+1. Overall Evaluation
+Reject
+3. Novelty
+No novelty
+4. Importance: select all that apply:
+No impact expected
+5. Summary of contribution (in a few sentences)
+This paper presents the Ocelot optimization framework for declarative "smart" contracts written in Datalog. The goal of Ocelot is to rewrite a contract's logic to minimize gas costs when running on public blockchains (e.g., Ethereum). The gist of its approach is to enumerate program variations in an offline simulator to find the one with the lowest expected cost. They generate a dependency graph between rules/relations in a Datalog problem to identify unnecessary eager computations and opportunities to minimize unnecessary work. They collected over 30 contract implementations from public repositories and converted them into Datalog. They then compare their approach against the converted Datalog programs and the original (supposedly "hand-optimized") implementations.
+6. Describe in detail all strong points, labeled S1, S2, S3, etc.
+S1 - Automatic materialized view optimization is a hard problem.
+7. Describe in detail all opportunities for improvement, labeled O1, O2, O3, etc.
+O1 - I've read a few papers on these contracts before, and I found this one the most incomplete. The authors fail to present terms, concepts, and other aspects of the problem domain clearly. I think part of the issue is that the authors assume familiarity with Datalog, even though most contracts are *not* written in Datalog. For example, what does it mean for Datalog to interact "with the blockchain environment" (Section 2)? Why does this matter?
+
+O2 - It is not clear where the gas inefficiency is coming from in Table 1. You should provide an example of what the BnB transaction is doing (presumably it is different than the contract in Figure 1?). If it is too complex to put in a figure, then provide a simplified version that highlights the main ideas.
+
+O3 - The lack of runtime adaptivity (discussed in Section 1) is usually not an issue for OLTP applications since they are mostly index lookups on a small number of records. Give an example of why this matters for contracts. This paragraph also makes it seem like you will target storage layout optimizations, but as far as I know, you are only proposing to build an index?
+
+O4 - The language extensions in Section 3.1 are orthogonal to Ocelot's optimization goals. As I was reading this section, I kept thinking you would discuss how Ocelot optimizes these new language features. But instead, this section is just about adding features that were missing from before. It is unclear whether they actually matter because the paper never discusses which percentage of the open-source contracts used in the evaluation require them. Are they necessary for the core ideas of Ocelot?
+
+O5 - The paper is missing important technical details on how certain aspects of the approach are implemented. For example, Section 3.3 mentions that Ocelot automatically generates primary key indexes. Where are these indexes stored? Do you support building indexes on relations with existing tuples or only when relations are first declared? Doesn't maintaining these indexes incur additional gas costs? If yes, then how much? What data structure are you using for the indexes? If a contract only performs single key look-ups, then wouldn't you want to use a hash table instead of a tree?
+
+O6 - Figure 3 is useless and doesn't convey any new information that explains your approach. Replace it with a diagram that walks through the step-by-step optimization of Figure 1.
+
+O7 - The "Overall Algorithm" paragraph at the end of Section 4.4 is awkward. Move it to the beginning of Section 4.4 and do not use the word "Overall" twice.
+
+O8 - The experimental evaluation of the proposed approach is woefully inadequate. The authors do not compare their approach to other optimization frameworks. Instead, they take open-source implementations and assume they are "hand-optimized". How do they know they are already optimized? They did not compare their approach against any other optimization framework (but list prior work in Section 7). Instead, they provide specious reasons why prior approaches are not worth comparing, such as that they only do source-level optimizations or that they "lack formal development and comprehensive evaluation". These reasons are unsatisfactory, and this paper should not be resubmitted without a thorough comparison of prior work.
+
+O9 - The authors fail to explain how they generated Datalog versions of the benchmark contracts. How do they know their initial implementations are just terribly inefficient because they didn't apply basic optimizations?
+
+O10 - Provide a summary of the complexity of the benchmark contracts from Table 3. You claim that it takes a minute to generate the materialization plans. Is this generation correlated to the number of relations/rules in a contract? Do some contracts run significantly faster than others? Why or why not? Is your profiler single-threaded, or can this profiling step be parallelized?
+
+O11 - The analysis of the results in Section 6.3 is challenging to follow without examples. You list contracts (e.g., Vote) without a citation and assume the reader knows what you are talking about.
+
+O12 - Section 6.3 uses undefined terms (e.g., SSLOAD, SSTORE) that are not used anywhere else in the paper.
+
+O13 - Why is the BnB contract special? Why is it highlighted in Section 6.3? Is it the same as Figure 1? Why not show similar results for all the other contract types from Table 3?
+
+O14 - The authors fail to cite any papers on automatic materialized view selection and optimization. They instead only cite two survey books on views. At least cite the foundational papers in this area, then compare against newer methods:
++ Automated Selection of Materialized Views and Indexes in SQL Databases (VLDB 2000)
++ Algorithms for Materialized View Design in Data Warehousing Environment (VLDB 1997)
+8. Please rank the three most critical strong points and/or opportunities for improvement that led to your overall evaluation rating, e.g., "{S1, O7, O4}"
+O8, O4, O14
+9. Do you have specific questions to authors to answer in author feedback? Use Q1, Q2, Q3, etc. for questions.
+Q1 - I don't understand why the wild fluctuations in gas prices matter in your approach? Don't you always want to make a contract as efficient as possible? Are there situations where Ocelot would choose one plan over another based on the current gas price? Since it is *really* expensive to create a contract, why does the current gas matter? If you think it is important, please provide a graph that shows the fluctuations over time.
+
+Q2 - What is an example of "crucial intermediates" from Section 1?
+
+Q3 - Section 1 states that "protocol upgrades" invalidate the "underlying cost model". Are these changes to cost model parameters, or are they completely new models? How often does this happen? Can you give an example?
+
+Q4 - Why is the lack of "complex mathematical models" in Datalog a core issue that Ocelot needs to solve? How many of the real-world contracts in your evaluation use them? Is this just an engineering issue, or is there a more fundamental reason the existing Datalog implementations don't support them?
+
+Q5 - What is the "transaction table" in Section 2.3? Where is it physically stored?
+
+Q6 - What is the "Other" instruction type in Table 2? How much is the cost relative to the other instruction types in the table?
+
+Q7 - What are the "BrickBlockToken", "Ballot", and "VestingWallet" contracts referenced in Section 3.1? There are no citations. Why do they matter?
+
+Q8 - What does "parametric-based" optimization mean in Section 7? Why does this matter? Couldn't they also run the same simulation that you did to estimate the cost?
+
+Q9 - Who are the "people" you are referring to in Section 6.3?
+10. Minor remarks: Use this field to describe minor remarks that are not listed as opportunities for improvement, e.g., to highlight typos, formatting problems, or minor technical issues, labeled M1, M2, M3, etc.
+M1 - Remove superfluous adverbs in the text (e.g., directly, Consequently).
+
+M2 - The formatting style of "Reference" in Section 6 is confusing. It looks the same as the benchmark contracts in Table 3. Use a different format style.
+
+M3 - Use consistent ordering of the different approaches in all your tables/graphs. For example, Table 4 uses Datalog→Reference→Ocelot, but Figure 5 uses Ocelot→Datalog→Reference.
+11. Required changes for revision: List required changes for a revision, if appropriate, by identifying subset of previously specified opportunities for improvement (e.g., O1, O3, O6). Authors can respond to this in their proposed initial revision plan along with the author feedback.
+Redo the entire experimental evaluation. Compare against prior optimization approaches.
+Drop any discussion of the language extensions unless they are necessary.
+12. Availability of artifacts: All papers were asked to make their code, data, scripts, and notebooks available anonymously if possible. You can find this information in the paper summary on CMT when clicking on the Paper ID next to the title. The call for papers emphasizes the need for artifacts especially for E&A Papers and DI&DS Papers. Are the artifacts available? Do you have any comments or feedback on the artifacts?
+LGTM
+Reviewer #2 | Regular
+Questions
+1. Overall Evaluation
+Minor Revision - An "accept" post revision is expected
+3. Novelty
+E&A: New experimental survey/analysis, benchmark, datasets, reproducibility study, and/or user study
+4. Importance: select all that apply:
+SIGMOD attendees will learn something interesting from the paper
+5. Summary of contribution (in a few sentences)
+This paper introduces OCELOT, an optimization framework that applies query optimization techniques known from data management to block chain environments in order to balance storage costs against runtime efficiency. The authors start by presenting limitations for Datalog as a declarative language for defining smart contracts (especially w.r.t. expressiveness and efficiency), further motivating their work by exemplifying that storage costs often dominate overall costs for smart contracts. To address these issues, OCELOT extends the declarative Datalog language with constructs to support block chain semantics and applies a selective view materialization strategy known to improve runtime efficiency. The approach appears to be based upon (or at least very similar to) DeSCO, but it is unclear to me whether and what kind of relation there is.
+6. Describe in detail all strong points, labeled S1, S2, S3, etc.
+(S1) Relevant problem: Optimization is difficult for smart contracts the presented framework provides a solution.
+
+(S2) Exploitation of Cross-Domain Synergies: The authors make smart use tried-and-tested database optimizations.
+
+(S3) Working Prototype: The authors provide code for their framework, so it can be used by others.
+7. Describe in detail all opportunities for improvement, labeled O1, O2, O3, etc.
+(O1) Novelty Unclear: There appears to be a related paper that is not discussed in detail. I might be mistaken as I'm no expert in the domain, but I think the authors should make explicit how the presented work goes beyond [32] (cf. M6).
+
+(O2) Evaluation With Synthetic Traces: The authors use real-world contract data but with generated traces based on randomized function calls. While the results indicate that the approach is viable, real-world traces would be more convincing.
+
+(O3) Editing & Presentation: The paper could be improved with a toro read-through and structural improvements to make it easier to understand (cf. M1, M3, M4)
+8. Please rank the three most critical strong points and/or opportunities for improvement that led to your overall evaluation rating, e.g., "{S1, O7, O4}"
+S1, S2, O1
+9. Do you have specific questions to authors to answer in author feedback? Use Q1, Q2, Q3, etc. for questions.
+Q1: In what ways is the presented system novel when compared to DeSCO (32]?
+10. Minor remarks: Use this field to describe minor remarks that are not listed as opportunities for improvement, e.g., to highlight typos, formatting problems, or minor technical issues, labeled M1, M2, M3, etc.
+(M1) Some of the equations protrude into the margin.
+(M2) I think a reference for the "DAO attack in 2016" (p. 1) should be provided.
+(M3) The introduction needs focus, in my opinion. I really like that the contribution list connects to the sections of the paper, but I think this kind of overview would be more helpful early on and not just at the end of page 2.
+(M4) Text sometimes protrudes into the margin.
+(M5) Typo "balaneOf" instead of "balanceOf"
+(M6) The paper seems to be follow-up work of a VLDB 2024 works up paper ("Practical Declarative Smart Contracts Optimization") presenting the DeSCO system. Why I think this is fine per se, I find it odd that this paper is only mentioned briefly.
+11. Required changes for revision: List required changes for a revision, if appropriate, by identifying subset of previously specified opportunities for improvement (e.g., O1, O3, O6). Authors can respond to this in their proposed initial revision plan along with the author feedback.
+O1 / Q1
+12. Availability of artifacts: All papers were asked to make their code, data, scripts, and notebooks available anonymously if possible. You can find this information in the paper summary on CMT when clicking on the Paper ID next to the title. The call for papers emphasizes the need for artifacts especially for E&A Papers and DI&DS Papers. Are the artifacts available? Do you have any comments or feedback on the artifacts?
+The artifacts are available, but I did not try them out myself.
+Reviewer #3 | Regular
+Questions
+1. Overall Evaluation
+Major Revision - Many revisions required and an "accept" post revision is not certain
+3. Novelty
+Novel solution
+4. Importance: select all that apply:
+SIGMOD attendees will learn something interesting from the paper
+5. Summary of contribution (in a few sentences)
+OCELOT compiles declarative smart-contract specifications into gas-efficient Solidity via language extensions, an optimization framework centered on view elimination plus selective view materialization and a formalization of the materialization-plan space with a BFS enumeration of valid minimal plans over a replacement graph and correctness arguments. The paper also includes aa 35-contract declarative benchmark. The experimental results show thatOCELOT matches the hand-optimized Reference in most of the 35 contracts.
+6. Describe in detail all strong points, labeled S1, S2, S3, etc.
+S1. The paper discusses a well-motivated and cross-domain problem, that of bringing database view-selection/incremental view maintenance to declarative smart-contract gas optimization. S2. There is a formal description of the problem in Section 4 (executability, validity, minimal plan), the replacement graph, and the BFS enumeration with explicit pruning patterns are coherent, with a helpful running token-contract example.
+S3. The experiments use a genuine a 35-contract declarative benchmark.
+7. Describe in detail all opportunities for improvement, labeled O1, O2, O3, etc.
+O1. The novelty of the solution should be framed more precisely. The component techniques, like incremental view maintenance, view selection/materialization, read projection, indexing, are classical database techniques. The genuine contribution is their adaptation to the gas/immutability setting plus the profiling-based selector. The paper should clearly explain what is fundamentally new versus adapted.
+O2. The experimental comparison to the state-of-the-art seems insufficient. The only baselines are “Incremental Datalog” and “Reference”. There seem to be in the literature directly related systems: DeSCO [32], which also optimizes Datalog smart contracts, is discussed but not compared with experimentally. Also DeCon [15] applies some gas-improving rules. There seems to be some relationship.
+O3. There is no ablation study. All optimizations (view elimination, selective materialization, read projection, indexing, arithmetic optimization) should be tested in an ablation study. Selective view materialization is not isolated from read projection/indexing.
+O4. The materialize-versus-recompute decision is inherently workload-dependent, yet the evaluation workloads are synthetic, and, therefore, may not reflect the access patterns that determine the optimal plan. It is necessary to evaluate the sensitivity to read/update mix with real on-chain transaction traces.
+O5. The scalability of plan enumeration is notaddressed. The replacement-graph BFS reports few plans per contract on this benchmark, but there is no analysis of how the plan count grows with the number of relations/rules.
+O7. It seems that the metrics used are too narrow. Per-transaction runtime gas is the right primary metric but the only one reported. Selective materialization may also change the storage layout/size and may affect latency.
+8. Please rank the three most critical strong points and/or opportunities for improvement that led to your overall evaluation rating, e.g., "{S1, O7, O4}"
+O1, O2, O3, O4, O5, O6
+9. Do you have specific questions to authors to answer in author feedback? Use Q1, Q2, Q3, etc. for questions.
+No.
+11. Required changes for revision: List required changes for a revision, if appropriate, by identifying subset of previously specified opportunities for improvement (e.g., O1, O3, O6). Authors can respond to this in their proposed initial revision plan along with the author feedback.
+Changes so that O1-O5 are addressed.
+12. Availability of artifacts: All papers were asked to make their code, data, scripts, and notebooks available anonymously if possible. You can find this information in the paper summary on CMT when clicking on the Paper ID next to the title. The call for papers emphasizes the need for artifacts especially for E&A Papers and DI&DS Papers. Are the artifacts available? Do you have any comments or feedback on the artifacts?
+There is a link to a GitHub repository.
